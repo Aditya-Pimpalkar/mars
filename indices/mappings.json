@@ -1,0 +1,132 @@
+{
+  "logs": {
+    "index_patterns": ["logs-*"],
+    "mappings": {
+      "properties": {
+        "@timestamp":   { "type": "date" },
+        "service":      { "type": "keyword" },
+        "level":        { "type": "keyword" },
+        "message":      { "type": "text" },
+        "trace_id":     { "type": "keyword" },
+        "span_id":      { "type": "keyword" },
+        "latency_ms":   { "type": "float" },
+        "status_code":  { "type": "integer" },
+        "host":         { "type": "keyword" },
+        "region":       { "type": "keyword" },
+        "env":          { "type": "keyword" }
+      }
+    }
+  },
+
+  "metrics": {
+    "index_patterns": ["metrics-*"],
+    "mappings": {
+      "properties": {
+        "@timestamp":       { "type": "date" },
+        "service":          { "type": "keyword" },
+        "region":           { "type": "keyword" },
+        "latency_p50":      { "type": "float" },
+        "latency_p99":      { "type": "float" },
+        "error_rate":       { "type": "float" },
+        "rps":              { "type": "float" },
+        "db_pool_active":   { "type": "integer" },
+        "db_pool_max":      { "type": "integer" },
+        "db_pool_wait_ms":  { "type": "float" },
+        "cpu_pct":          { "type": "float" },
+        "mem_pct":          { "type": "float" }
+      }
+    }
+  },
+
+  "deployments": {
+    "index_patterns": ["deployments-*"],
+    "mappings": {
+      "properties": {
+        "@timestamp":   { "type": "date" },
+        "version":      { "type": "keyword" },
+        "service":      { "type": "keyword" },
+        "env":          { "type": "keyword" },
+        "author":       { "type": "keyword" },
+        "status":       { "type": "keyword" },
+        "rollback_of":  { "type": "keyword" },
+        "changes":      { "type": "text" },
+        "pipeline":     { "type": "keyword" }
+      }
+    }
+  },
+
+  "incidents": {
+    "index_patterns": ["incidents-*"],
+    "mappings": {
+      "properties": {
+        "incident_id":    { "type": "keyword" },
+        "title":          { "type": "text" },
+        "summary":        { "type": "text" },
+        "root_cause":     { "type": "text" },
+        "service":        { "type": "keyword" },
+        "severity":       { "type": "keyword" },
+        "status":         { "type": "keyword" },
+        "created_at":     { "type": "date" },
+        "resolved_at":    { "type": "date" },
+        "duration_min":   { "type": "integer" },
+        "author":         { "type": "keyword" },
+        "tags":           { "type": "keyword" },
+        "embedding": {
+          "type": "dense_vector",
+          "dims": 384,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    }
+  },
+
+  "runbooks": {
+    "index_patterns": ["runbooks-*"],
+    "mappings": {
+      "properties": {
+        "runbook_id":     { "type": "keyword" },
+        "title":          { "type": "text" },
+        "service":        { "type": "keyword" },
+        "category":       { "type": "keyword" },
+        "steps":          { "type": "text" },
+        "last_updated":   { "type": "date" },
+        "author":         { "type": "keyword" },
+        "tags":           { "type": "keyword" },
+        "embedding": {
+          "type": "dense_vector",
+          "dims": 384,
+          "index": true,
+          "similarity": "cosine"
+        }
+      }
+    }
+  },
+
+  "claim_ledger": {
+    "index_patterns": ["claim-ledger-*"],
+    "mappings": {
+      "properties": {
+        "session_id":           { "type": "keyword" },
+        "claim_id":             { "type": "keyword" },
+        "claim_text":           { "type": "text" },
+        "source_type": {
+          "type": "keyword",
+          "doc_values": true
+        },
+        "evidence_summary":     { "type": "text" },
+        "evidence_raw":         { "type": "object", "enabled": false },
+        "source_timestamp":     { "type": "date" },
+        "confidence":           { "type": "float" },
+        "status":               { "type": "keyword" },
+        "conflicts_with":       { "type": "keyword" },
+        "resolution_reasoning": { "type": "text" },
+        "follow_up_count":      { "type": "integer" },
+        "follow_up_status":     { "type": "keyword" },
+        "previous_queries":     { "type": "keyword" },
+        "created_at":           { "type": "date" },
+        "updated_at":           { "type": "date" }
+      }
+    }
+  }
+}

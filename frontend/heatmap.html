@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MARS — Evidence Heatmap</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:      #080c12;
+            --surface: #0d1420;
+            --surface2:#111827;
+            --border:  #1e2d42;
+            --accent:  #00d4ff;
+            --teal:    #00bfb3;
+            --red:     #ff4444;
+            --amber:   #f59e0b;
+            --green4:  #059669;
+            --green3:  #10b981;
+            --gray:    #374151;
+            --text:    #e2e8f0;
+            --muted:   #64748b;
+            --mono:    'Space Mono', monospace;
+            --display: 'Syne', sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            min-height: 100vh;
+            padding: 28px;
+        }
+
+        /* ── Header ── */
+        .header {
+            display: flex;
+            align-items: baseline;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 { font-family: var(--display); font-size: 30px; font-weight: 800; color: var(--accent); }
+        .header .sub { color: var(--muted); font-size: 11px; }
+
+        /* ── Controls ── */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        select {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 6px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: var(--muted);
+            padding: 5px 10px;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+        }
+        .live-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--gray);
+            transition: background 0.3s;
+        }
+        .live-dot.active { background: var(--green3); animation: blink 1.2s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes spin   { to { transform: rotate(360deg); } }
+        .controls label { color: var(--muted); font-size: 11px; display:flex; align-items:center; gap:6px; cursor:pointer; }
+
+        /* ── Chart ── */
+        #chart-container { min-height: 140px; width: 100%; }
+
+        /* ── Stats ── */
+        .stats { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 16px; min-width: 110px; }
+        .stat-value { font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--accent); }
+        .stat-value.red   { color: var(--red); }
+        .stat-value.amber { color: var(--amber); }
+        .stat-value.green { color: var(--green3); }
+        .stat-label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing:.08em; margin-top:2px; }
+
+        /* ── Legend ── */
+        .legend { display:flex; gap:16px; margin-bottom:18px; align-items:center; flex-wrap:wrap; }
+        .legend-label { color:var(--muted); font-size:10px; text-transform:uppercase; }
+        .legend-item { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--muted); }
+        .legend-cell { width:15px; height:15px; border-radius:3px; }
+
+        /* ── Grid ── */
+        .grid-wrapper { overflow-x:auto; border:1px solid var(--border); border-radius:10px; background:var(--surface); }
+        table { width:100%; border-collapse:collapse; }
+
+        thead th {
+            padding: 12px 10px;
+            text-align: center;
+            font-family: var(--display);
+            font-size: 11px; font-weight: 700;
+            color: var(--muted);
+            text-transform: uppercase; letter-spacing:.1em;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
+        }
+        thead th.claim-col { text-align:left; width:360px; padding-left:16px; }
+        thead th.source-col { width:120px; }
+        thead th.conf-col { width:80px; }
+
+        tbody tr { border-bottom:1px solid var(--border); transition:background 0.15s; }
+        tbody tr:hover { background:rgba(0,212,255,0.03); }
+        tbody tr:last-child { border-bottom:none; }
+        tbody tr.new-row { animation: rowIn 0.5s ease; }
+        @keyframes rowIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:none} }
+
+        .claim-cell { padding:10px 10px 10px 16px; max-width:360px; vertical-align:middle; }
+        .claim-id { font-size:9px; color:var(--muted); margin-bottom:2px; }
+        .claim-text { font-size:11px; color:var(--text); line-height:1.4; cursor:pointer; }
+        .claim-text:hover { color:var(--accent); }
+
+        .badge {
+            display:inline-block; font-size:9px; padding:1px 6px; border-radius:3px;
+            margin-left:6px; vertical-align:middle;
+            background:rgba(245,158,11,0.15); color:var(--amber); border:1px solid rgba(245,158,11,0.3);
+        }
+        .badge.resolved { background:rgba(16,185,129,0.12); color:var(--green3); border-color:rgba(16,185,129,0.3); }
+        .badge.contradicted { background:rgba(255,68,68,0.12); color:var(--red); border-color:rgba(255,68,68,0.3); }
+
+        .cell { padding:6px; text-align:center; vertical-align:middle; cursor:pointer; position:relative; }
+        .cell-inner {
+            width:52px; height:40px; border-radius:6px; margin:0 auto;
+            display:flex; align-items:center; justify-content:center;
+            font-size:16px; transition:transform 0.15s, box-shadow 0.15s;
+        }
+        .cell-inner:hover { transform:scale(1.12); box-shadow:0 0 12px rgba(0,212,255,0.3); z-index:10; }
+
+        .lvl-0 { background:rgba(30,45,66,0.4);  border:1px solid rgba(30,45,66,0.8); }
+        .lvl-1 { background:rgba(255,68,68,0.18); border:1px solid rgba(255,68,68,0.5); animation:pulse-red 1.8s ease-in-out infinite; }
+        .lvl-2 { background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.45); }
+        .lvl-3 { background:rgba(16,185,129,0.22);border:1px solid rgba(16,185,129,0.5); }
+        .lvl-4 { background:rgba(5,150,105,0.30); border:1px solid rgba(5,150,105,0.7); box-shadow:0 0 8px rgba(5,150,105,0.2); }
+
+        @keyframes pulse-red {
+            0%,100%{box-shadow:0 0 0 0 rgba(255,68,68,0.4)}
+            50%    {box-shadow:0 0 0 4px rgba(255,68,68,0)}
+        }
+
+        .conf-cell { padding:6px 10px; text-align:center; vertical-align:middle; }
+        .conf-bar-wrap { width:56px; height:6px; background:var(--border); border-radius:3px; margin:0 auto 3px; }
+        .conf-bar { height:100%; border-radius:3px; transition:width 0.4s ease; }
+        .conf-pct { font-size:10px; color:var(--muted); }
+
+        tfoot td {
+            padding:8px 6px; text-align:center;
+            border-top:2px solid var(--border); background:var(--surface2);
+            font-size:10px; color:var(--muted);
+            text-transform:uppercase; letter-spacing:.08em;
+        }
+        tfoot td.claim-col { text-align:left; padding-left:16px; }
+
+        /* ── Tooltip ── */
+        .tooltip {
+            display:none; position:fixed; z-index:999;
+            background:#111827; border:1px solid var(--accent);
+            border-radius:8px; padding:12px 14px; max-width:420px;
+            font-size:11px; line-height:1.6; color:var(--text);
+            pointer-events:none; box-shadow:0 8px 32px rgba(0,0,0,0.6);
+            max-height:300px; overflow-y:auto;
+        }
+        .tooltip.show { display:block; }
+        .tooltip-title { font-family:var(--display); font-size:12px; font-weight:700; color:var(--accent); margin-bottom:6px; }
+        .tooltip-conflict { color:var(--red); font-weight:bold; margin-top:6px; }
+
+        /* ── Detail panel ── */
+        .detail-panel {
+            margin-top:20px; background:var(--surface);
+            border:1px solid var(--accent); border-radius:10px;
+            padding:20px; display:none;
+        }
+        .detail-panel.show { display:block; animation:fadeIn 0.2s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+        .detail-header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+        .detail-id { font-size:10px; color:var(--muted); }
+        .detail-text {
+            font-size:13px; color:var(--text); line-height:1.6;
+            margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border);
+        }
+        .detail-meta { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+        .meta-key { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; }
+        .meta-val { font-size:11px; color:var(--text); margin-top:2px; }
+        .meta-val.conflict { color:var(--red); }
+        .meta-val.supported { color:var(--green3); }
+        .close-btn {
+            margin-left:auto; background:transparent; border:1px solid var(--border);
+            color:var(--muted); border-radius:4px; padding:3px 10px;
+            cursor:pointer; font-family:var(--mono); font-size:11px;
+        }
+        .close-btn:hover { border-color:var(--red); color:var(--red); }
+        .empty-state { padding:60px; text-align:center; color:var(--muted); font-size:13px; }
+
+        /* ── Agent Narrative ── */
+        .narrative-panel {
+            margin-top: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+        }
+        .narrative-panel.show { display: block; }
+        .narrative-header {
+            padding: 14px 20px;
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--display);
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .narrative-body {
+            padding: 20px 24px;
+            font-size: 12px;
+            line-height: 1.8;
+            color: var(--text);
+        }
+        .narrative-body h2 { font-family:var(--display); font-size:16px; font-weight:700; color:var(--accent); margin:20px 0 8px; }
+        .narrative-body h3 { font-family:var(--display); font-size:13px; font-weight:700; color:var(--teal); margin:16px 0 6px; }
+        .narrative-body p { margin-bottom: 10px; }
+        .narrative-body strong { color: var(--text); }
+        .narrative-body code {
+            background: rgba(0,212,255,0.1);
+            border: 1px solid rgba(0,212,255,0.2);
+            padding: 1px 6px; border-radius: 3px;
+            font-family: var(--mono); font-size: 11px; color: var(--accent);
+        }
+        .narrative-body table { width:100%; border-collapse:collapse; margin:12px 0; font-size:11px; }
+        .narrative-body table th {
+            background:var(--surface2); padding:8px 12px; text-align:left;
+            color:var(--muted); text-transform:uppercase; font-size:10px;
+            letter-spacing:0.08em; border-bottom:1px solid var(--border);
+            font-family:var(--mono); font-weight:400;
+        }
+        .narrative-body table td { padding:8px 12px; border-bottom:1px solid rgba(30,45,66,0.6); color:var(--text); }
+        .narrative-body table tr:last-child td { border-bottom: none; }
+        .narrative-body ul, .narrative-body ol { margin: 8px 0 12px 20px; }
+        .narrative-body li { margin-bottom: 4px; }
+        .narrative-badge {
+            font-size:9px; padding:2px 8px;
+            background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.3);
+            border-radius:10px; color:var(--accent); margin-left:auto;
+        }
+
+        /* ── Evidence section divider ── */
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 28px 0 18px;
+        }
+        .section-divider-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        .section-divider-label {
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div class="header">
+    <h1>MARS</h1>
+    <span class="sub">Evidence Heatmap — Multi-Agent Research Synthesizer</span>
+</div>
+
+<!-- Question bar -->
+<div class="question-bar" style="display:flex;gap:8px;margin-bottom:14px;">
+    <input type="text" id="question-input"
+           style="flex:1;background:var(--surface);border:1px solid var(--accent);color:var(--text);font-family:var(--mono);font-size:12px;padding:10px 16px;border-radius:6px;outline:none;"
+           placeholder="Ask a research question... e.g. Why did API latency spike last Tuesday?"
+           value="Why did API latency spike last Tuesday afternoon?"
+           onkeydown="if(event.key==='Enter') runPipeline()"
+    />
+    <button id="run-btn" onclick="runPipeline()"
+            style="background:var(--accent);color:var(--bg);border:none;font-family:var(--mono);font-size:12px;font-weight:700;padding:10px 20px;border-radius:6px;cursor:pointer;">
+        ▶ Run MARS
+    </button>
+</div>
+
+<!-- Data source selector — populated by loadSources() -->
+<div id="source-selector" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
+    <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Data Source:</span>
+</div>
+
+<!-- Running indicator -->
+<div id="running-indicator" style="display:none;align-items:center;gap:10px;font-size:11px;color:var(--amber);margin-bottom:14px;padding:8px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;">
+    <div style="width:13px;height:13px;border:2px solid rgba(245,158,11,0.3);border-top-color:var(--amber);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;"></div>
+    <span id="running-label">Starting pipeline...</span>
+</div>
+
+<!-- Session selector + live toggle -->
+<div class="controls">
+    <select id="session-select" onchange="selectSession(this.value)">
+        <option value="">— or select past session —</option>
+    </select>
+    <div class="live-badge">
+        <div class="live-dot" id="live-dot"></div>
+        <span id="live-label">off</span>
+    </div>
+    <label>
+        <input type="checkbox" id="live-toggle" onchange="toggleLive(this.checked)">
+        Live (poll every 3s)
+    </label>
+</div>
+
+<!-- Stats bar -->
+<div class="stats" id="stats"></div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- ANALYSIS FIRST — answer before evidence                    -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+
+<!-- Agent Builder Analysis -->
+<div class="narrative-panel" id="narrative-panel">
+    <div class="narrative-header">
+        ⚡ Agent Builder Analysis
+        <span class="narrative-badge">Elastic Agent Builder + Claude Opus</span>
+    </div>
+    <div class="narrative-body" id="narrative-body"></div>
+</div>
+
+<!-- Latency / Traffic / Revenue Chart (visual proof below analysis) -->
+<div id="chart-container" style="display:none;margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 24px;">
+    <div id="chart-title" style="font-family:var(--display);font-size:12px;color:var(--muted);margin-bottom:10px;">⚡ p99 Latency — Jan 21, 2026</div>
+    <canvas id="latency-chart" height="120"></canvas>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- EVIDENCE HEATMAP — detailed supporting claims              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+
+<div class="section-divider">
+    <div class="section-divider-line"></div>
+    <span class="section-divider-label">Evidence Heatmap — Supporting Claims</span>
+    <div class="section-divider-line"></div>
+</div>
+
+<div class="legend">
+    <span class="legend-label">Support →</span>
+    <div class="legend-item"><div class="legend-cell" style="background:rgba(5,150,105,0.30);border:1px solid rgba(5,150,105,0.7)"></div>Strong (≥90%)</div>
+    <div class="legend-item"><div class="legend-cell" style="background:rgba(16,185,129,0.22);border:1px solid rgba(16,185,129,0.5)"></div>Moderate</div>
+    <div class="legend-item"><div class="legend-cell" style="background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.45)"></div>Weak</div>
+    <div class="legend-item"><div class="legend-cell" style="background:rgba(255,68,68,0.18);border:1px solid rgba(255,68,68,0.5)"></div>Contradicted</div>
+    <div class="legend-item"><div class="legend-cell" style="background:rgba(30,45,66,0.4);border:1px solid rgba(30,45,66,0.8)"></div>No evidence</div>
+</div>
+
+<div class="grid-wrapper">
+    <table id="heatmap-table">
+        <tbody><tr><td class="empty-state">Type a question above and click ▶ Run MARS</td></tr></tbody>
+    </table>
+</div>
+
+<div class="detail-panel" id="detail-panel">
+    <div class="detail-header">
+        <div class="detail-id" id="detail-id"></div>
+        <button class="close-btn" onclick="closeDetail()">✕ close</button>
+    </div>
+    <div class="detail-text" id="detail-text"></div>
+    <div class="detail-meta" id="detail-meta"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+    const SOURCES = [
+        {id:"esql_data",    label:"ES|QL Data",   icon:"⚡"},
+        {id:"internal_doc", label:"Internal Docs", icon:"📖"},
+        {id:"web",          label:"Web Scout",     icon:"🌐"},
+    ];
+    const LEVEL_ICONS  = ['·','⚡','◒','◕','●'];
+    const LEVEL_LABELS = ['No evidence','Contradicted','Weak','Moderate','Strong'];
+
+    let currentSession = null;
+    let currentSource  = 'demo';
+    let liveInterval   = null;
+    let knownClaimIds  = new Set();
+    let matrix  = [];
+    let summary = {};
+
+    // ── Data source selector ───────────────────────────────────
+    async function loadSources() {
+        const resp = await fetch('/api/sources').catch(() => null);
+        if (!resp) return;
+        const data = await resp.json();
+        const container = document.getElementById('source-selector');
+
+        data.sources.forEach((src, i) => {
+            const btn = document.createElement('button');
+            btn.id = `src-${src.id}`;
+            btn.textContent = src.label;
+            btn.title = src.description;
+            btn.dataset.sourceId = src.id;
+            btn.style.cssText = `
+                font-family:var(--mono);font-size:10px;font-weight:600;
+                padding:5px 12px;border-radius:5px;cursor:pointer;
+                border:1px solid var(--border);transition:all 0.15s;
+                background:${i === 0 ? 'var(--accent)' : 'var(--surface)'};
+                color:${i === 0 ? 'var(--bg)' : 'var(--muted)'};
+            `;
+            btn.onclick = () => selectSource(src.id);
+            container.appendChild(btn);
+        });
+    }
+
+    function selectSource(sourceId) {
+        currentSource = sourceId;
+        document.querySelectorAll('#source-selector button').forEach(btn => {
+            const active = btn.dataset.sourceId === sourceId;
+            btn.style.background  = active ? 'var(--accent)'  : 'var(--surface)';
+            btn.style.color       = active ? 'var(--bg)'      : 'var(--muted)';
+            btn.style.borderColor = active ? 'var(--accent)'  : 'var(--border)';
+        });
+
+        // Update pre-filled question based on source
+        const questions = {
+            'demo':       'Why did API latency spike last Tuesday afternoon?',
+            'weblogs':    'Are there any HTTP errors or anomalies in the web logs?',
+            'ecommerce':  'What is the revenue trend and which categories are performing best?',
+        };
+        const input = document.getElementById('question-input');
+        if (questions[sourceId]) input.value = questions[sourceId];
+    }
+
+    // ── Pipeline runner ────────────────────────────────────────
+    async function runPipeline() {
+        const question = document.getElementById('question-input').value.trim();
+        if (!question) return;
+
+        const btn   = document.getElementById('run-btn');
+        const ind   = document.getElementById('running-indicator');
+        const label = document.getElementById('running-label');
+
+        btn.disabled    = true;
+        btn.textContent = '⏳ Running...';
+        ind.style.display = 'flex';
+
+        // Reset UI
+        document.getElementById('narrative-panel').classList.remove('show');
+        document.getElementById('chart-container').style.display = 'none';
+        document.getElementById('heatmap-table').innerHTML =
+            '<tbody><tr><td class="empty-state">Pipeline running — claims appearing in real time...</td></tr></tbody>';
+        document.getElementById('stats').innerHTML = '';
+
+        try {
+            const resp = await fetch('/api/run', {
+                method:  'POST',
+                headers: {'Content-Type': 'application/json'},
+                body:    JSON.stringify({ question, data_source: currentSource }),
+            });
+            if (!resp.ok) throw new Error(`Pipeline failed: ${resp.status}`);
+            const data = await resp.json();
+
+            currentSession = data.session_id;
+            knownClaimIds  = new Set();
+
+            const sel = document.getElementById('session-select');
+            const opt = document.createElement('option');
+            opt.value       = data.session_id;
+            opt.textContent = `▶ ${data.session_id} (running...)`;
+            opt.selected    = true;
+            sel.prepend(opt);
+
+            document.getElementById('live-toggle').checked = true;
+            toggleLive(true);
+
+            const statusMessages = {
+                'planning':     '🧠 Agent Builder planning subtasks...',
+                'verifying':    '⚡ ES|QL Verifier querying metrics...',
+                'retrieving':   '📖 Retrieval Agent searching docs...',
+                'web_scouting': '🌐 Web Scout searching external sources...',
+                'reviewing':    '🔍 Reviewer detecting contradictions...',
+                'complete':     '✅ Pipeline complete',
+            };
+
+            await new Promise((resolve) => {
+                const statusPoller = setInterval(async () => {
+                    try {
+                        const sr = await fetch(`/api/status?session_id=${data.session_id}`);
+                        const sd = await sr.json();
+                        label.textContent = statusMessages[sd.status] || `Running: ${sd.status}...`;
+                        if (sd.status === 'complete' || sd.status.startsWith('error')) {
+                            clearInterval(statusPoller);
+                            resolve(sd.status);
+                        }
+                    } catch(e) { /* keep polling */ }
+                }, 2000);
+            });
+
+            document.getElementById('live-toggle').checked = false;
+            clearInterval(liveInterval);
+            liveInterval = null;
+
+            await loadData();
+            opt.textContent = `▶ ${data.session_id} (just now)`;
+            await loadNarrative(data.session_id);
+
+            ind.style.display = 'none';
+            btn.disabled    = false;
+            btn.textContent = '▶ Run MARS';
+
+        } catch(e) {
+            ind.style.display = 'none';
+            label.textContent = `⚠️ Error: ${e.message}`;
+            btn.disabled    = false;
+            btn.textContent = '▶ Run MARS';
+        }
+    }
+
+    // ── Chart loader ───────────────────────────────────────────
+    let chartInstance = null;
+    async function loadChart(sessionId) {
+        if (typeof Chart === 'undefined') return;
+        try {
+            const resp = await fetch(`/api/chart?session_id=${sessionId}`);
+            const data = await resp.json();
+            if (!data.labels || !data.labels.length) return;
+
+            const container = document.getElementById('chart-container');
+            let canvas = document.getElementById('latency-chart');
+            if (!container || !canvas) return;
+
+            container.style.display = 'block';
+
+            const titles = {
+                'demo':      '⚡ p99 Latency — Jan 21, 2026',
+                'weblogs':   '📊 Web Traffic — Requests & Bytes (last 7 days)',
+                'ecommerce': '💰 Revenue Trend — Daily Orders (last 30 days)',
+            };
+            const titleEl = document.getElementById('chart-title');
+            if (titleEl) titleEl.textContent = titles[currentSource] || titles['demo'];
+
+            const newCanvas = document.createElement('canvas');
+            newCanvas.id     = 'latency-chart';
+            newCanvas.height = 120;
+            canvas.parentNode.replaceChild(newCanvas, canvas);
+
+            await new Promise(r => requestAnimationFrame(r));
+            await new Promise(r => requestAnimationFrame(r));
+
+            if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+            const peak = Math.max(...data.values);
+            chartInstance = new Chart(newCanvas, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: currentSource === 'ecommerce' ? 'Revenue ($)' : currentSource === 'weblogs' ? 'Requests' : 'p99 Latency (ms)',
+                        data:  data.values,
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0,212,255,0.08)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true,
+                        pointBackgroundColor: data.values.map(v => v === peak ? '#ff4444' : '#00d4ff'),
+                        pointRadius:          data.values.map(v => v === peak ? 7 : 3),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8', font: { size: 10 } } }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#64748b', maxTicksLimit: 8, maxRotation: 45, font: { size: 9 } },
+                            grid:  { color: '#1e2d42' }
+                        },
+                        y: {
+                            ticks: { color: '#64748b' },
+                            grid:  { color: '#1e2d42' },
+                            title: { display: true, text: currentSource === 'ecommerce' ? 'Revenue ($)' : currentSource === 'weblogs' ? 'Requests' : 'p99 Latency (ms)', color: '#64748b', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+            requestAnimationFrame(() => chartInstance && chartInstance.resize());
+        } catch(e) { console.error('Chart failed:', e); }
+    }
+
+    // ── Narrative loader ───────────────────────────────────────
+    async function loadNarrative(sessionId) {
+        try {
+            const resp = await fetch(`/api/narrative?session_id=${sessionId}`);
+            const data = await resp.json();
+            if (!data.narrative) return;
+
+            const panel = document.getElementById('narrative-panel');
+            const body  = document.getElementById('narrative-body');
+
+            if (typeof marked === 'undefined') {
+                body.innerHTML = '<pre style="white-space:pre-wrap;font-size:11px;">' +
+                    data.narrative.replace(/</g, '&lt;') + '</pre>';
+            } else {
+                marked.setOptions({ breaks: true, gfm: true });
+                body.innerHTML = marked.parse(data.narrative);
+            }
+
+            panel.classList.add('show');
+            setTimeout(() => loadChart(sessionId), 300);
+        } catch(e) {
+            console.error('Narrative load failed:', e);
+        }
+    }
+
+    // ── Boot ───────────────────────────────────────────────────
+    async function boot() {
+        const resp = await fetch('/api/sessions').catch(() => null);
+        if (!resp) {
+            document.getElementById('session-select').innerHTML = '<option>Cannot connect to server</option>';
+            return;
+        }
+        const data = await resp.json();
+        const sel  = document.getElementById('session-select');
+        if (!data.sessions || !data.sessions.length) {
+            sel.innerHTML = '<option>No sessions — run a question first</option>';
+            return;
+        }
+        sel.innerHTML = data.sessions.map((s, i) =>
+            `<option value="${s}">${i === 0 ? '▶ ' : ''}${s}</option>`
+        ).join('');
+        selectSession(data.sessions[0]);
+    }
+
+    async function selectSession(sessionId) {
+        if (!sessionId) return;
+        currentSession = sessionId;
+        knownClaimIds  = new Set();
+        matrix  = [];
+        summary = {};
+        await loadData();
+        await loadNarrative(sessionId);
+    }
+
+    // ── Data loading ───────────────────────────────────────────
+    async function loadData() {
+        if (!currentSession) return;
+        const dot = document.getElementById('live-dot');
+        dot.classList.add('active');
+        try {
+            const resp = await fetch(`/api/claims?session_id=${currentSession}`);
+            const data = await resp.json();
+            const newClaims = data.claims.filter(c => !knownClaimIds.has(c.claim_id));
+            newClaims.forEach(c => knownClaimIds.add(c.claim_id));
+            matrix  = buildMatrix(data.claims);
+            summary = data.summary || {};
+            renderStats(summary);
+            renderTable(matrix, newClaims.map(c => c.claim_id));
+        } catch(e) { console.error('Load failed:', e); }
+        setTimeout(() => dot.classList.remove('active'), 400);
+    }
+
+    // ── Matrix builder ─────────────────────────────────────────
+    function buildMatrix(claims) {
+        return claims.map(claim => {
+            const cells = SOURCES.map(src => {
+                if (claim.source_type !== src.id) return { level:0, note:'Not retrieved from this source' };
+                const status = claim.status || 'pending';
+                const conf   = claim.confidence || 0;
+                const ev     = claim.evidence_summary || '';
+                if (status === 'contradicted') return { level:1, note:'⚡ CONTRADICTED\n' + (claim.resolution_reasoning||'') };
+                if (conf >= 0.90) return { level:4, note:`Strong evidence (${(conf*100).toFixed(0)}%)\n${ev}` };
+                if (conf >= 0.75) return { level:3, note:`Moderate evidence (${(conf*100).toFixed(0)}%)\n${ev}` };
+                return { level:2, note:`Weak evidence (${(conf*100).toFixed(0)}%)\n${ev}` };
+            });
+            return {
+                claim_id:    claim.claim_id,
+                claim_text:  (claim.claim_text||'').slice(0,85) + '...',
+                full_text:   claim.claim_text || '',
+                status:      claim.status || 'pending',
+                confidence:  claim.confidence || 0,
+                follow_up:   claim.follow_up_status || 'idle',
+                source_type: claim.source_type || 'unknown',
+                cells,
+            };
+        });
+    }
+
+    // ── Stats ──────────────────────────────────────────────────
+    function renderStats(s) {
+        const breakdown = s.status_breakdown || {};
+        const stats = [
+            { label:'Total Claims',     value: s.total_claims||0,           cls:'' },
+            { label:'Verified',         value: breakdown.supported||0,      cls:'green' },
+            { label:'Conflicts Found',  value: s.conflicts_found||0,        cls: s.conflicts_found>0?'red':'' },
+            { label:'Follow-ups Fired', value: s.follow_ups_fired||0,       cls:'amber' },
+            { label:'Avg Confidence',   value: ((s.avg_confidence||0)*100).toFixed(0)+'%', cls:'green' },
+        ];
+        document.getElementById('stats').innerHTML = stats.map(s => `
+            <div class="stat">
+                <div class="stat-value ${s.cls}">${s.value}</div>
+                <div class="stat-label">${s.label}</div>
+            </div>`).join('');
+    }
+
+    // ── Table ──────────────────────────────────────────────────
+    function renderTable(rows, newIds=[]) {
+        const table = document.getElementById('heatmap-table');
+        if (!rows.length) {
+            table.innerHTML = '<tbody><tr><td class="empty-state">No claims yet — agents are still running...</td></tr></tbody>';
+            return;
+        }
+        let html = `<thead><tr>
+            <th class="claim-col">Claim</th>
+            ${SOURCES.map(s=>`<th class="source-col">${s.icon} ${s.label}</th>`).join('')}
+            <th class="conf-col">Confidence</th>
+        </tr></thead><tbody>`;
+
+        rows.forEach((row, ri) => {
+            const isNew = newIds.includes(row.claim_id);
+            let badge = '';
+            if (row.follow_up==='querying')  badge = `<span class="badge">🔄 querying</span>`;
+            if (row.follow_up==='resolved')  badge = `<span class="badge resolved">✓ followed-up</span>`;
+            if (row.follow_up==='exhausted') badge = `<span class="badge">⚠ exhausted</span>`;
+            if (row.status==='contradicted') badge += `<span class="badge contradicted">⚡ contradicted</span>`;
+
+            html += `<tr class="${isNew?'new-row':''}">
+                <td class="claim-cell">
+                    <div class="claim-id">${row.claim_id}</div>
+                    <div class="claim-text" onclick="showDetail(${ri})">${row.claim_text}${badge}</div>
+                </td>`;
+
+            row.cells.forEach((cell, ci) => {
+                html += `<td class="cell"
+                    onmouseenter="showTooltip(event,${ri},${ci})"
+                    onmouseleave="hideTooltip()"
+                    onclick="showDetail(${ri})">
+                    <div class="cell-inner lvl-${cell.level}">${LEVEL_ICONS[cell.level]}</div>
+                </td>`;
+            });
+
+            const color = row.confidence>=0.9?'#059669':row.confidence>=0.75?'#10b981':row.confidence>=0.6?'#f59e0b':'#ef4444';
+            html += `<td class="conf-cell">
+                <div class="conf-bar-wrap">
+                    <div class="conf-bar" style="width:${(row.confidence*100).toFixed(0)}%;background:${color}"></div>
+                </div>
+                <div class="conf-pct">${(row.confidence*100).toFixed(0)}%</div>
+            </td></tr>`;
+        });
+
+        html += '</tbody><tfoot><tr><td class="claim-col">Source coverage</td>';
+        SOURCES.forEach((_, ci) => {
+            const covered = rows.filter(r=>r.cells[ci].level>=2).length;
+            const pct = rows.length>0 ? Math.round(covered/rows.length*100) : 0;
+            html += `<td>${covered}/${rows.length} (${pct}%)</td>`;
+        });
+        html += '<td>—</td></tr></tfoot>';
+        table.innerHTML = html;
+    }
+
+    // ── Tooltip ────────────────────────────────────────────────
+    function showTooltip(e, ri, ci) {
+        const row  = matrix[ri];
+        const cell = row.cells[ci];
+        const src  = SOURCES[ci];
+        const tip  = document.getElementById('tooltip');
+        tip.innerHTML = `
+            <div class="tooltip-title">${src.icon} ${src.label} → ${row.claim_id}</div>
+            <div><b>Level:</b> ${LEVEL_LABELS[cell.level]}</div>
+            <div style="margin-top:6px;color:#94a3b8;white-space:pre-wrap">${cell.note}</div>
+            ${cell.level===1?`<div class="tooltip-conflict">⚡ Overridden by ES|QL data</div>`:''}
+        `;
+        tip.classList.add('show');
+        positionTooltip(e);
+    }
+    function hideTooltip() { document.getElementById('tooltip').classList.remove('show'); }
+    function positionTooltip(e) {
+        const tip = document.getElementById('tooltip');
+        tip.style.left = Math.min(e.clientX+14, window.innerWidth-340)+'px';
+        tip.style.top  = Math.min(e.clientY-10,  window.innerHeight-160)+'px';
+    }
+    document.addEventListener('mousemove', e => {
+        const tip = document.getElementById('tooltip');
+        if (tip.classList.contains('show')) positionTooltip(e);
+    });
+
+    // ── Detail panel ───────────────────────────────────────────
+    function showDetail(ri) {
+        const row = matrix[ri];
+        document.getElementById('detail-id').textContent   = row.claim_id;
+        document.getElementById('detail-text').textContent = row.full_text;
+        const statusCls = row.status==='contradicted'?'conflict':row.status==='supported'?'supported':'';
+        document.getElementById('detail-meta').innerHTML = [
+            { key:'Source Type', val:row.source_type,                     cls:'' },
+            { key:'Status',      val:row.status,                          cls:statusCls },
+            { key:'Confidence',  val:(row.confidence*100).toFixed(0)+'%', cls:'' },
+            { key:'Follow-up',   val:row.follow_up,                       cls:'' },
+        ].map(m=>`<div class="meta-item">
+            <div class="meta-key">${m.key}</div>
+            <div class="meta-val ${m.cls}">${m.val}</div>
+        </div>`).join('');
+        document.getElementById('detail-panel').classList.add('show');
+        document.getElementById('detail-panel').scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+    function closeDetail() { document.getElementById('detail-panel').classList.remove('show'); }
+
+    // ── Live polling ───────────────────────────────────────────
+    function toggleLive(on) {
+        const label = document.getElementById('live-label');
+        const dot   = document.getElementById('live-dot');
+        if (on) {
+            label.textContent = 'live';
+            dot.classList.add('active');
+            liveInterval = setInterval(loadData, 3000);
+        } else {
+            label.textContent = 'off';
+            dot.classList.remove('active');
+            clearInterval(liveInterval);
+        }
+    }
+
+    // ── Init ───────────────────────────────────────────────────
+    boot();
+    loadSources();
+</script>
+</body>
+</html>
