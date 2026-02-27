@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>MARS — Architecture Diagram</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #f1f5f9;
+            font-family: 'DM Sans', sans-serif;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+        .page {
+            width: 1100px;
+            background: #fff;
+            border-radius: 16px;
+            padding: 48px;
+            box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+        }
+
+        /* ── Header ── */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 36px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .header-title { font-size: 24px; font-weight: 700; color: #0f172a; }
+        .header-sub { font-size: 13px; color: #64748b; margin-top: 4px; }
+        .header-badge {
+            text-align: right;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #1d4ed8;
+            line-height: 1.8;
+        }
+
+        /* ── Row ── */
+        .row {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .layer-label {
+            font-size: 9px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        /* ── Arrow ── */
+        .arrow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 28px;
+            color: #94a3b8;
+            font-size: 20px;
+            line-height: 1;
+        }
+
+        /* ── Input box ── */
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .user-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 70px;
+        }
+        .user-icon {
+            width: 52px; height: 52px;
+            background: #eff6ff;
+            border: 2px solid #bfdbfe;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+        }
+        .user-label { font-size: 11px; font-weight: 600; color: #1e293b; }
+
+        .arrow-right {
+            color: #94a3b8; font-size: 18px; flex-shrink: 0;
+        }
+
+        .input-box {
+            flex: 1;
+            background: #f0f9ff;
+            border: 1.5px solid #7dd3fc;
+            border-radius: 10px;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .input-box .icon { font-size: 20px; }
+        .input-box .text { font-size: 13px; font-style: italic; color: #0f172a; }
+        .input-box .sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+        /* ── Data sources ── */
+        .sources-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+        .source-card {
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 16px;
+            background: #f8fafc;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .source-card.active { border-color: #3b82f6; background: #eff6ff; }
+        .source-card.weblogs { border-color: #10b981; background: #f0fdf4; }
+        .source-card.ecommerce { border-color: #f59e0b; background: #fffbeb; }
+        .source-icon { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+        .source-title { font-size: 12px; font-weight: 700; color: #0f172a; }
+        .source-desc { font-size: 10px; color: #64748b; margin-top: 2px; line-height: 1.5; }
+        .source-agent { font-size: 9px; font-weight: 600; color: #7c3aed; margin-top: 6px; background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+
+        /* ── Planner ── */
+        .planner-box {
+            border: 2px solid #8b5cf6;
+            border-radius: 12px;
+            background: #faf5ff;
+            padding: 16px 20px;
+        }
+        .planner-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #e9d5ff;
+        }
+        .planner-icon {
+            width: 44px; height: 44px;
+            background: #7c3aed;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .planner-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+        .planner-sub { font-size: 11px; color: #7c3aed; margin-top: 2px; }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .tool-pill {
+            background: white;
+            border: 1px solid #e9d5ff;
+            border-radius: 8px;
+            padding: 8px 10px;
+            font-size: 11px;
+            color: #374151;
+        }
+        .tool-pill .tool-type {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 3px;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+        .tool-pill .tool-name { font-weight: 600; color: #0f172a; font-size: 11px; }
+        .tool-pill .tool-desc { font-size: 10px; color: #64748b; margin-top: 2px; line-height: 1.4; }
+        .type-esql { background: #dbeafe; color: #1d4ed8; }
+        .type-search { background: #fef3c7; color: #92400e; }
+
+        /* ── Agents row ── */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+        .agent-card {
+            border-radius: 12px;
+            padding: 14px 16px;
+            border: 1.5px solid;
+        }
+        .agent-card.esql { border-color: #3b82f6; background: #eff6ff; }
+        .agent-card.docs { border-color: #f59e0b; background: #fffbeb; }
+        .agent-card.web  { border-color: #8b5cf6; background: #f5f3ff; }
+
+        .agent-header {
+            display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+            padding-bottom: 10px; border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+        .agent-icon {
+            width: 38px; height: 38px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .esql .agent-icon { background: #3b82f6; }
+        .docs .agent-icon { background: #f59e0b; }
+        .web  .agent-icon { background: #8b5cf6; }
+        .agent-name { font-size: 12px; font-weight: 700; color: #0f172a; }
+        .agent-file { font-size: 10px; color: #64748b; margin-top: 1px; }
+
+        .agent-items { list-style: none; }
+        .agent-items li {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.05);
+            font-size: 10px; color: #374151;
+        }
+        .agent-items li:last-child { border-bottom: none; }
+        .conf { font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+        .conf-high { background: #dcfce7; color: #166534; }
+        .conf-mid  { background: #fef3c7; color: #92400e; }
+        .conf-low  { background: #ede9fe; color: #5b21b6; }
+
+        .trust-footer {
+            margin-top: 10px; padding-top: 8px;
+            border-top: 1px solid rgba(0,0,0,0.06);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .trust-label-sm { font-size: 9px; color: #94a3b8; }
+        .trust-badge { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+        .tb-high { background: #dbeafe; color: #1d4ed8; }
+        .tb-mid  { background: #fef3c7; color: #92400e; }
+        .tb-low  { background: #ede9fe; color: #5b21b6; }
+
+        /* ── Claim Ledger ── */
+        .ledger-box {
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            background: #f0fdf4;
+            padding: 16px 20px;
+        }
+        .ledger-header {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 12px;
+        }
+        .ledger-icon {
+            width: 44px; height: 44px; background: #10b981;
+            border-radius: 10px; display: flex; align-items: center;
+            justify-content: center; font-size: 20px; flex-shrink: 0;
+        }
+        .ledger-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+        .ledger-sub { font-size: 11px; color: #10b981; margin-top: 1px; }
+        .fields-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .field-tag {
+            font-size: 10px; font-weight: 500; font-family: 'Courier New', monospace;
+            color: #065f46; background: #d1fae5;
+            border: 1px solid #6ee7b7; border-radius: 4px; padding: 2px 8px;
+        }
+
+        /* ── Reviewer ── */
+        .reviewer-box {
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            background: #fff1f2;
+            padding: 16px 20px;
+        }
+        .reviewer-header {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: 14px; padding-bottom: 12px;
+            border-bottom: 1px solid #fecaca;
+        }
+        .reviewer-icon {
+            width: 44px; height: 44px; background: #ef4444;
+            border-radius: 10px; display: flex; align-items: center;
+            justify-content: center; font-size: 20px; flex-shrink: 0;
+        }
+        .reviewer-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+        .reviewer-sub { font-size: 11px; color: #ef4444; margin-top: 1px; }
+        .steps-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+        .step-card {
+            background: white; border: 1px solid #fecaca;
+            border-radius: 8px; padding: 10px 12px; text-align: center;
+        }
+        .step-num { font-size: 11px; font-weight: 700; color: #ef4444; margin-bottom: 4px; }
+        .step-title { font-size: 11px; font-weight: 600; color: #0f172a; margin-bottom: 2px; }
+        .step-desc { font-size: 10px; color: #64748b; line-height: 1.4; }
+
+        /* ── Output ── */
+        .output-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+        .output-card {
+            border: 1.5px solid #e2e8f0; border-radius: 10px;
+            background: #f8fafc; padding: 14px;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .output-icon { font-size: 22px; }
+        .output-name { font-size: 12px; font-weight: 700; color: #0f172a; }
+        .output-desc { font-size: 10px; color: #64748b; line-height: 1.5; }
+
+        /* ── ES indices ── */
+        .indices-box {
+            background: #fff7ed; border: 1.5px solid #fed7aa;
+            border-radius: 10px; padding: 14px 18px;
+        }
+        .indices-label {
+            font-size: 9px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; color: #f97316; margin-bottom: 8px;
+        }
+        .indices-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .index-tag {
+            font-size: 10px; font-family: 'Courier New', monospace;
+            color: #9a3412; background: #ffedd5;
+            border: 1px solid #fdba74; border-radius: 4px; padding: 3px 10px;
+        }
+
+        /* ── Trust hierarchy ── */
+        .trust-row {
+            display: flex; gap: 12px; align-items: center;
+            padding: 12px 16px;
+            background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
+        }
+        .trust-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0; }
+        .trust-items { display: flex; gap: 8px; align-items: center; flex: 1; }
+        .trust-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; }
+        .trust-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+        .trust-chevron { color: #94a3b8; font-size: 14px; }
+
+        /* ── Legend ── */
+        .legend {
+            display: flex; gap: 20px; flex-wrap: wrap;
+            padding-top: 16px; margin-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            align-items: center;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #64748b; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+        .legend-gh { margin-left: auto; font-size: 11px; color: #94a3b8; font-weight: 500; }
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- Header -->
+    <div class="header">
+        <div>
+            <div class="header-title">MARS — Multi-Agent Research Synthesizer</div>
+            <div class="header-sub">System Architecture · Elasticsearch Agent Builder Hackathon 2026</div>
+        </div>
+        <div class="header-badge">
+            Elastic Cloud Serverless · GCP us-east1<br>
+            335,000+ documents · 3 agents · 7 tools
+        </div>
+    </div>
+
+    <!-- Input -->
+    <div class="layer-label">Input</div>
+    <div class="input-row">
+        <div class="user-node">
+            <div class="user-icon">👤</div>
+            <div class="user-label">Engineer</div>
+        </div>
+        <div class="arrow-right">→</div>
+        <div class="input-box">
+            <div class="icon">🖥️</div>
+            <div>
+                <div class="text">"Why did API latency spike last Tuesday afternoon?"</div>
+                <div class="sub">MARS UI · FastAPI + HTML · web-production-d6146.up.railway.app</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- Data Source Toggle -->
+    <div class="layer-label">Data Source — switchable live from UI · agents/sources.py</div>
+    <div class="sources-row">
+        <div class="source-card active">
+            <div class="source-icon">🎯</div>
+            <div>
+                <div class="source-title">Demo Data</div>
+                <div class="source-desc">Synthetic incident · Jan 21 2026<br>335k+ docs with planted contradictions</div>
+                <span class="source-agent">mars-research-synthesizer</span>
+            </div>
+        </div>
+        <div class="source-card weblogs">
+            <div class="source-icon">📋</div>
+            <div>
+                <div class="source-title">Sample Web Logs</div>
+                <div class="source-desc">Kibana sample data · 14k real HTTP requests<br>404 / 503 error patterns</div>
+                <span class="source-agent">mars-weblogs-analyzer</span>
+            </div>
+        </div>
+        <div class="source-card ecommerce">
+            <div class="source-icon">🛒</div>
+            <div>
+                <div class="source-title">Sample eCommerce</div>
+                <div class="source-desc">Kibana sample data · 4.6k real orders<br>$350k revenue · daily trends</div>
+                <span class="source-agent">mars-ecommerce-analyzer</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- Planner -->
+    <div class="layer-label">Layer 1 — Planning · agents/planner.py</div>
+    <div class="planner-box">
+        <div class="planner-header">
+            <div class="planner-icon">⚡</div>
+            <div>
+                <div class="planner-title">Planner Agent</div>
+                <div class="planner-sub">Elastic Agent Builder · Claude Opus 4.5 · Routes by question keywords + data source</div>
+            </div>
+        </div>
+        <div class="tools-grid">
+            <div class="tool-pill">
+                <div><span class="tool-type type-esql">ES|QL</span></div>
+                <div class="tool-name">mars.spike_detector</div>
+                <div class="tool-desc">p99 latency anomalies over incident window</div>
+            </div>
+            <div class="tool-pill">
+                <div><span class="tool-type type-esql">ES|QL</span></div>
+                <div class="tool-name">mars.deploy_lookup</div>
+                <div class="tool-desc">Correlated deployments in incident window</div>
+            </div>
+            <div class="tool-pill">
+                <div><span class="tool-type type-search">Search</span></div>
+                <div class="tool-name">mars.doc_search</div>
+                <div class="tool-desc">Semantic search over incidents-mars</div>
+            </div>
+            <div class="tool-pill">
+                <div><span class="tool-type type-search">Search</span></div>
+                <div class="tool-name">mars.runbook_search</div>
+                <div class="tool-desc">Semantic search over runbooks-mars</div>
+            </div>
+            <div class="tool-pill">
+                <div><span class="tool-type type-esql">ES|QL</span></div>
+                <div class="tool-name">mars.weblogs_errors</div>
+                <div class="tool-desc">Traffic + error rates from web logs</div>
+            </div>
+            <div class="tool-pill">
+                <div><span class="tool-type type-esql">ES|QL</span></div>
+                <div class="tool-name">mars.weblogs_top_errors</div>
+                <div class="tool-desc">Top 404/503 URLs and affected hosts</div>
+            </div>
+            <div class="tool-pill">
+                <div><span class="tool-type type-esql">ES|QL</span></div>
+                <div class="tool-name">mars.ecommerce_trends</div>
+                <div class="tool-desc">Daily revenue and order volumes</div>
+            </div>
+            <div class="tool-pill">
+                <div><span class="tool-type type-esql">ES|QL</span></div>
+                <div class="tool-name">mars.ecommerce_categories</div>
+                <div class="tool-desc">Sales by day of week breakdown</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- Three Agents -->
+    <div class="layer-label">Layer 2 — Parallel Retrieval</div>
+    <div class="agents-grid">
+
+        <div class="agent-card esql">
+            <div class="agent-header">
+                <div class="agent-icon">⚡</div>
+                <div>
+                    <div class="agent-name">Data Verifier Agent</div>
+                    <div class="agent-file">agents/verifier.py · Truth Anchor</div>
+                </div>
+            </div>
+            <ul class="agent-items">
+                <li>spike_window <span class="conf conf-high">95%</span></li>
+                <li>deploy_lookup <span class="conf conf-high">90%</span></li>
+                <li>db_pool / error_rate <span class="conf conf-high">92–95%</span></li>
+                <li>weblogs_spike / ecommerce_summary <span class="conf conf-high">92%</span></li>
+            </ul>
+            <div class="trust-footer">
+                <span class="trust-label-sm">Source trust</span>
+                <span class="trust-badge tb-high">① HIGHEST — wins all conflicts</span>
+            </div>
+        </div>
+
+        <div class="agent-card docs">
+            <div class="agent-header">
+                <div class="agent-icon">📖</div>
+                <div>
+                    <div class="agent-name">Internal Retrieval Agent</div>
+                    <div class="agent-file">agents/retrieval.py · BM25 Search</div>
+                </div>
+            </div>
+            <ul class="agent-items">
+                <li>incidents-mars (BM25) <span class="conf conf-mid">70–88%</span></li>
+                <li>runbooks-mars (BM25) <span class="conf conf-mid">70–88%</span></li>
+                <li>Score filter ≥1.0 for non-demo <span class="conf conf-mid">filtered</span></li>
+            </ul>
+            <div class="trust-footer">
+                <span class="trust-label-sm">Source trust</span>
+                <span class="trust-badge tb-mid">② MEDIUM — overridden by ES|QL</span>
+            </div>
+        </div>
+
+        <div class="agent-card web">
+            <div class="agent-header">
+                <div class="agent-icon">🌐</div>
+                <div>
+                    <div class="agent-name">Web Scout Agent</div>
+                    <div class="agent-file">agents/web_scout.py · Tavily API</div>
+                </div>
+            </div>
+            <ul class="agent-items">
+                <li>2 targeted searches / session <span class="conf conf-low">65%</span></li>
+                <li>Queries built from ES|QL claims <span class="conf conf-low">62–68%</span></li>
+                <li>Source-aware query generation <span class="conf conf-low">varied</span></li>
+            </ul>
+            <div class="trust-footer">
+                <span class="trust-label-sm">Source trust</span>
+                <span class="trust-badge tb-low">③ LOWEST — external only</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- Claim Ledger -->
+    <div class="layer-label">Shared Artifact · claim_ledger/ledger.py</div>
+    <div class="ledger-box">
+        <div class="ledger-header">
+            <div class="ledger-icon">📋</div>
+            <div>
+                <div class="ledger-title">Claim Ledger</div>
+                <div class="ledger-sub">Elasticsearch index · claim-ledger-mars · All agents write here · Reviewer reads here</div>
+            </div>
+        </div>
+        <div class="fields-row">
+            <span class="field-tag">claim_id</span>
+            <span class="field-tag">session_id</span>
+            <span class="field-tag">claim_text</span>
+            <span class="field-tag">source_type</span>
+            <span class="field-tag">confidence</span>
+            <span class="field-tag">status</span>
+            <span class="field-tag">conflicts_with</span>
+            <span class="field-tag">resolution_reasoning</span>
+            <span class="field-tag">follow_up_count</span>
+            <span class="field-tag">follow_up_status</span>
+            <span class="field-tag">evidence_raw</span>
+            <span class="field-tag">data_source</span>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- Reviewer -->
+    <div class="layer-label">Layer 3 — Reconciliation · agents/reviewer.py</div>
+    <div class="reviewer-box">
+        <div class="reviewer-header">
+            <div class="reviewer-icon">🔍</div>
+            <div>
+                <div class="reviewer-title">Reviewer / Reconciler Agent</div>
+                <div class="reviewer-sub">Pure Python · No LLM · Rule-based · Deterministic conflict resolution</div>
+            </div>
+        </div>
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-num">01</div>
+                <div class="step-title">Read Claim Ledger</div>
+                <div class="step-desc">All claims for session loaded from Elasticsearch</div>
+            </div>
+            <div class="step-card">
+                <div class="step-num">02</div>
+                <div class="step-title">Detect Contradictions</div>
+                <div class="step-desc">Timestamp + numeric rule matching across sources</div>
+            </div>
+            <div class="step-card">
+                <div class="step-num">03</div>
+                <div class="step-title">Resolve Trust Hierarchy</div>
+                <div class="step-desc">ES|QL &gt; Internal Docs &gt; Web — deterministic</div>
+            </div>
+            <div class="step-card">
+                <div class="step-num">04</div>
+                <div class="step-title">Auto Follow-up</div>
+                <div class="step-desc">Confidence &lt; 0.68 → re-query · max 3 iterations</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- Output -->
+    <div class="layer-label">Output · frontend/heatmap.html · FastAPI server</div>
+    <div class="output-grid">
+        <div class="output-card">
+            <div class="output-icon">⚡</div>
+            <div class="output-name">Agent Builder Analysis</div>
+            <div class="output-desc">Claude Opus answer first — root cause, timeline, prevention recommendations</div>
+        </div>
+        <div class="output-card">
+            <div class="output-icon">📈</div>
+            <div class="output-name">Live Chart</div>
+            <div class="output-desc">p99 latency / web traffic / revenue rendered from ES|QL data via Chart.js</div>
+        </div>
+        <div class="output-card">
+            <div class="output-icon">🔥</div>
+            <div class="output-name">Evidence Heatmap</div>
+            <div class="output-desc">Real-time claim × source matrix with pulsing conflict cells and follow-up badges</div>
+        </div>
+        <div class="output-card">
+            <div class="output-icon">📋</div>
+            <div class="output-name">Sourced Report</div>
+            <div class="output-desc">Every claim traceable to its source — confidence, status, and resolution reasoning</div>
+        </div>
+    </div>
+
+    <div style="height:20px;"></div>
+
+    <!-- Elasticsearch indices -->
+    <div class="indices-box">
+        <div class="indices-label">Elasticsearch Cloud Serverless · 335,000+ Documents · 8 Indices</div>
+        <div class="indices-row">
+            <span class="index-tag">metrics-mars</span>
+            <span class="index-tag">logs-mars</span>
+            <span class="index-tag">deployments-mars</span>
+            <span class="index-tag">incidents-mars</span>
+            <span class="index-tag">runbooks-mars</span>
+            <span class="index-tag">claim-ledger-mars</span>
+            <span class="index-tag">kibana_sample_data_logs</span>
+            <span class="index-tag">kibana_sample_data_ecommerce</span>
+        </div>
+    </div>
+
+    <div style="height:16px;"></div>
+
+    <!-- Trust hierarchy summary -->
+    <div class="trust-row">
+        <span class="trust-title">Trust Hierarchy</span>
+        <div class="trust-items">
+            <div class="trust-item"><div class="trust-dot" style="background:#3b82f6"></div><span style="color:#1d4ed8">① ES|QL data — ground truth</span></div>
+            <span class="trust-chevron">›</span>
+            <div class="trust-item"><div class="trust-dot" style="background:#f59e0b"></div><span style="color:#92400e">② Internal docs — operational knowledge</span></div>
+            <span class="trust-chevron">›</span>
+            <div class="trust-item"><div class="trust-dot" style="background:#8b5cf6"></div><span style="color:#5b21b6">③ Web sources — external corroboration</span></div>
+            <span style="margin-left:auto;font-size:11px;color:#64748b;">When sources conflict → higher trust always wins</span>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#7c3aed"></div>Elastic Agent Builder</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>ES|QL Verifier</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Internal Retrieval</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Web Scout</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Claim Ledger</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Reviewer</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>Elasticsearch Cloud</div>
+        <div class="legend-gh">github.com/Aditya-Pimpalkar/mars</div>
+    </div>
+
+</div>
+</body>
+</html>
