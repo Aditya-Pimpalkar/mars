@@ -149,28 +149,28 @@ def _trigger_followup(
         source_config = get_source_config("demo")
 
     for claim in weak_claims:
-            # Skip claims already resolved by contradiction detection
-            if claim.status == "contradicted":
-                print(f"  ⏭️   Skipping contradicted claim: {claim.claim_text[:60]}...")
+        # Skip claims already resolved by contradiction detection
+        if claim.status == "contradicted":
+            print(f"  ⏭️   Skipping contradicted claim: {claim.claim_text[:60]}...")
+            continue
+
+        # Skip internal_doc follow-ups for non-demo sources
+        # DB pool incidents can't be verified against web/ecommerce data
+        if claim.source_type == "internal_doc":
+            try:
+                nav = es.get(index="claim-ledger-mars", id=f"narrative_{session_id}")
+                session_source = nav["_source"].get("data_source", "demo")
+            except Exception:
+                session_source = "demo"
+            if session_source != "demo":
                 continue
 
-            # Skip internal_doc follow-ups for non-demo sources
-            # DB pool incidents can't be verified against web/ecommerce data
-            if claim.source_type == "internal_doc":
-                try:
-                    nav = es.get(index="claim-ledger-mars", id=f"narrative_{session_id}")
-                    session_source = nav["_source"].get("data_source", "demo")
-                except Exception:
-                    session_source = "demo"
-                if session_source != "demo":
-                    continue
-
-            if claim.follow_up_count >= max_iterations:
-                ledger.update_claim(claim.claim_id, {
-                    "follow_up_status": "exhausted",
-                    "resolution_reasoning": "Max follow-up iterations reached. Best available evidence shown.",
-                })
-                continue
+        if claim.follow_up_count >= max_iterations:
+            ledger.update_claim(claim.claim_id, {
+                "follow_up_status": "exhausted",
+                "resolution_reasoning": "Max follow-up iterations reached. Best available evidence shown.",
+            })
+            continue
 
         # Mark as querying
         ledger.update_claim(claim.claim_id, {"follow_up_status": "querying"})
@@ -178,97 +178,97 @@ def _trigger_followup(
         # Pick the most relevant follow-up subtask based on claim content
         claim_lower = claim.claim_text.lower()
         if "pool" in claim_lower or "db" in claim_lower:
-            followup_subtask = Subtask(
-                id="followup_db",
-                description="Verify DB connection pool exhaustion with detailed metrics",
-                preferred_tool="esql",
-                evidence_type="db",
-                stop_condition="pool exhaustion confirmed with exact values",
-                priority=1,
-            )
+        followup_subtask = Subtask(
+            id="followup_db",
+            description="Verify DB connection pool exhaustion with detailed metrics",
+            preferred_tool="esql",
+            evidence_type="db",
+            stop_condition="pool exhaustion confirmed with exact values",
+            priority=1,
+        )
         elif "deploy" in claim_lower or "version" in claim_lower:
-            followup_subtask = Subtask(
-                id="followup_deploy",
-                description="Verify deploy timing and changes that caused the incident",
-                preferred_tool="esql",
-                evidence_type="deploy",
-                stop_condition="deploy correlated with spike onset",
-                priority=1,
-            )
+        followup_subtask = Subtask(
+            id="followup_deploy",
+            description="Verify deploy timing and changes that caused the incident",
+            preferred_tool="esql",
+            evidence_type="deploy",
+            stop_condition="deploy correlated with spike onset",
+            priority=1,
+        )
         elif "region" in claim_lower:
-            followup_subtask = Subtask(
-                id="followup_region",
-                description="Confirm which regions were affected by the latency spike",
-                preferred_tool="esql",
-                evidence_type="region",
-                stop_condition="affected regions confirmed",
-                priority=1,
-            )
+        followup_subtask = Subtask(
+            id="followup_region",
+            description="Confirm which regions were affected by the latency spike",
+            preferred_tool="esql",
+            evidence_type="region",
+            stop_condition="affected regions confirmed",
+            priority=1,
+        )
         else:
-            followup_subtask = Subtask(
-                id="followup_spike",
-                description="Verify latency spike window and magnitude",
-                preferred_tool="esql",
-                evidence_type="timestamp",
-                stop_condition="spike window confirmed",
-                priority=1,
-            )
+        followup_subtask = Subtask(
+            id="followup_spike",
+            description="Verify latency spike window and magnitude",
+            preferred_tool="esql",
+            evidence_type="timestamp",
+            stop_condition="spike window confirmed",
+            priority=1,
+        )
 
         # Check we haven't run this exact subtask before
         query_key = followup_subtask.description
         if query_key in claim.previous_queries:
-            ledger.update_claim(claim.claim_id, {
-                "follow_up_count":  claim.follow_up_count + 1,
-                "follow_up_status": "exhausted",
-                "resolution_reasoning": "Follow-up query identical to previous — no new evidence available.",
-            })
-            continue
+        ledger.update_claim(claim.claim_id, {
+            "follow_up_count":  claim.follow_up_count + 1,
+            "follow_up_status": "exhausted",
+            "resolution_reasoning": "Follow-up query identical to previous — no new evidence available.",
+        })
+        continue
 
         print(f"  🔄  Follow-up query for weak claim: {claim.claim_text[:60]}...")
 
         try:
-            # Run verifier to get new evidence rows directly
-            # without writing duplicate claims to the ledger
-            from agents.verifier import _pick_templates, _run_esql, _rows_to_claim_text
-            es = get_client()
-            templates = _pick_templates(followup_subtask)
-            found_strong_evidence = False
+        # Run verifier to get new evidence rows directly
+        # without writing duplicate claims to the ledger
+        from agents.verifier import _pick_templates, _run_esql, _rows_to_claim_text
+        es = get_client()
+        templates = _pick_templates(followup_subtask)
+        found_strong_evidence = False
 
-            for template_name in templates:
-                rows, actual_template = _run_esql(es, template_name, source_config=source_config)
-                _, confidence = _rows_to_claim_text(actual_template, rows)
-                if confidence >= threshold:
-                    found_strong_evidence = True
-                    break
+        for template_name in templates:
+            rows, actual_template = _run_esql(es, template_name, source_config=source_config)
+            _, confidence = _rows_to_claim_text(actual_template, rows)
+            if confidence >= threshold:
+                found_strong_evidence = True
+                break
 
-            if found_strong_evidence:
-                ledger.update_claim(claim.claim_id, {
-                    "follow_up_count":  claim.follow_up_count + 1,
-                    "follow_up_status": "resolved",
-                    "confidence":       min(claim.confidence + 0.2, 0.90),
-                    "status":           "supported",
-                    "previous_queries": claim.previous_queries + [query_key],
-                    "resolution_reasoning": "Confidence raised by follow-up ES|QL corroboration.",
-                })
-                resolved += 1
-                print(f"      → Resolved ✅  (confidence raised)")
-            else:
-                ledger.update_claim(claim.claim_id, {
-                    "follow_up_count":  claim.follow_up_count + 1,
-                    "follow_up_status": "exhausted",
-                    "previous_queries": claim.previous_queries + [query_key],
-                    "resolution_reasoning": "Follow-up query returned no high-confidence evidence.",
-                })
-                print(f"      → Exhausted ⚠️   (no new evidence)")
-
-        except Exception as e:
-            print(f"      → Follow-up failed: {e}")
+        if found_strong_evidence:
+            ledger.update_claim(claim.claim_id, {
+                "follow_up_count":  claim.follow_up_count + 1,
+                "follow_up_status": "resolved",
+                "confidence":       min(claim.confidence + 0.2, 0.90),
+                "status":           "supported",
+                "previous_queries": claim.previous_queries + [query_key],
+                "resolution_reasoning": "Confidence raised by follow-up ES|QL corroboration.",
+            })
+            resolved += 1
+            print(f"      → Resolved ✅  (confidence raised)")
+        else:
             ledger.update_claim(claim.claim_id, {
                 "follow_up_count":  claim.follow_up_count + 1,
                 "follow_up_status": "exhausted",
                 "previous_queries": claim.previous_queries + [query_key],
-                "resolution_reasoning": f"Follow-up failed: {str(e)}",
+                "resolution_reasoning": "Follow-up query returned no high-confidence evidence.",
             })
+            print(f"      → Exhausted ⚠️   (no new evidence)")
+
+        except Exception as e:
+        print(f"      → Follow-up failed: {e}")
+        ledger.update_claim(claim.claim_id, {
+            "follow_up_count":  claim.follow_up_count + 1,
+            "follow_up_status": "exhausted",
+            "previous_queries": claim.previous_queries + [query_key],
+            "resolution_reasoning": f"Follow-up failed: {str(e)}",
+        })
 
     return resolved
 
