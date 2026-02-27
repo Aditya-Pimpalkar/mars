@@ -1,6 +1,6 @@
 # MARS — Multi-Agent Research Synthesizer
 
-> Ask a complex operational question. Get a sourced, conflict-resolved answer in under 60 seconds.
+> Ask a complex operational question. Get a sourced, conflict-resolved answer in under 3 minutes.
 
 **Built for the [Elasticsearch Agent Builder Hackathon 2026](https://devpost.com/software/mars-multi-agent-research-synthesizer)**
 
@@ -26,15 +26,16 @@ MARS will:
 7. Fire **targeted follow-up queries** for any weak evidence
 8. Produce a **sourced report** with every claim linked to its evidence
 
-**Result:** What takes an engineer 30-60 minutes manually, MARS does in ~45 seconds.
+**Result:** What takes an engineer 30-60 minutes manually, MARS does in ~3 minutes.
 
 ---
 
 ## Live Demo
 
-> 🔗 **Deploy your own** — see [Quick Start](#quick-start) below
->
+🔗 **[https://web-production-d6146.up.railway.app](https://web-production-d6146.up.railway.app)**
+
 > Pipeline takes ~2-3 minutes. The heatmap builds in real time as agents run.
+> Use the pre-filled question for each data source.
 
 ---
 
@@ -42,8 +43,8 @@ MARS will:
 
 | Feature | Description |
 |---|---|
-| **Elastic Agent Builder** | MARS agent in Kibana with 4 custom tools — `mars.spike_detector`, `mars.deploy_lookup`, `mars.doc_search`, `mars.runbook_search` |
-| **ES\|QL Verifier** | 6 parameterized query templates against time-series metrics, logs, and deployments |
+| **Elastic Agent Builder** | 3 agents in Kibana with 7 custom ES|QL + Search tools |
+| **ES\|QL Verifier** | 8 parameterized query templates against time-series metrics, logs, and deployments |
 | **Hybrid Search** | BM25 search over incidents and runbooks for historical context |
 | **Web Scout** | Tavily-powered external corroboration via web search |
 | **Claim Ledger** | Every piece of evidence stored as a structured claim in Elasticsearch with confidence, status, and provenance |
@@ -119,13 +120,11 @@ When two sources contradict each other, MARS resolves in favour of the higher-tr
 
 MARS supports three data sources switchable live from the UI:
 
-| Source | Index | Best Question |
-|---|---|---|
-| **Demo Data** | `metrics-mars`, `logs-mars`, `deployments-mars` | *Why did API latency spike last Tuesday?* |
-| **Sample Web Logs** | `kibana_sample_data_logs` (14k real requests) | *Are there any HTTP errors in the web logs?* |
-| **Sample eCommerce** | `kibana_sample_data_ecommerce` (4.6k orders) | *What is the revenue trend this month?* |
-
-Each source uses a dedicated Elastic Agent Builder agent with ES|QL tools pointing at the correct indices.
+| Source | Index | Agent | Best Question |
+|---|---|---|---|
+| **Demo Data** | `metrics-mars`, `logs-mars`, `deployments-mars` | `mars-research-synthesizer` | *Why did API latency spike last Tuesday?* |
+| **Sample Web Logs** | `kibana_sample_data_logs` (14k real requests) | `mars-weblogs-analyzer` | *Are there any HTTP errors in the web logs?* |
+| **Sample eCommerce** | `kibana_sample_data_ecommerce` (4.6k orders) | `mars-ecommerce-analyzer` | *What is the revenue trend this month?* |
 
 ---
 
@@ -208,9 +207,11 @@ python ingest/generate.py
 
 ### 4 — Set up Elastic Agent Builder in Kibana
 
-Go to **Kibana → Agents → Tools** and create four tools:
+Go to **Kibana → Agents → Tools** and create these tools:
 
-**Tool 1: `mars.spike_detector`** (ES|QL)
+---
+
+**`mars.spike_detector`** (ES|QL) — Detects p99 latency anomalies
 ```
 FROM metrics-mars
 | WHERE @timestamp >= "2026-01-21T13:30:00Z" AND @timestamp <= "2026-01-21T16:00:00Z"
@@ -220,7 +221,7 @@ FROM metrics-mars
 | LIMIT 50
 ```
 
-**Tool 2: `mars.deploy_lookup`** (ES|QL)
+**`mars.deploy_lookup`** (ES|QL) — Finds correlated deployments
 ```
 FROM deployments-mars
 | WHERE @timestamp >= "2026-01-21T13:30:00Z" AND @timestamp <= "2026-01-21T16:00:00Z"
@@ -229,25 +230,73 @@ FROM deployments-mars
 | LIMIT 100
 ```
 
-**Tool 3: `mars.doc_search`** — Index search over `incidents-mars`
+**`mars.doc_search`** — Index search over `incidents-mars`
 
-**Tool 4: `mars.runbook_search`** — Index search over `runbooks-mars`
+**`mars.runbook_search`** — Index search over `runbooks-mars`
 
-Then create a new **Agent** with:
-- ID: `mars-research-synthesizer`
-- System prompt: copy from `agents/planner.py` → `SYSTEM_PROMPT`
-- Assign all 4 tools
+**`mars.weblogs_errors`** (ES|QL) — Traffic and error rates from web logs
+```
+FROM kibana_sample_data_logs
+| WHERE @timestamp >= now() - 7 days
+| STATS
+    total_requests = COUNT(*),
+    avg_bytes = AVG(bytes),
+    max_bytes = MAX(bytes)
+    BY bucket = DATE_TRUNC(6 hours, @timestamp)
+| SORT bucket ASC
+| LIMIT 50
+```
 
-#### Optional: Sample Data Sources
+**`mars.weblogs_top_errors`** (ES|QL) — Top 404/503 URLs
+```
+FROM kibana_sample_data_logs
+| WHERE @timestamp >= now() - 7 days
+    AND (response == "404" OR response == "503")
+| STATS error_count = COUNT(*)
+    BY request, response, host
+| SORT error_count DESC
+| LIMIT 20
+```
 
-For web logs and eCommerce demos, also install **Kibana sample data**:
-- Kibana → Home → **Add sample data** → install **Sample web logs** and **Sample eCommerce**
+**`mars.ecommerce_trends`** (ES|QL) — Daily revenue and order volumes
+```
+FROM kibana_sample_data_ecommerce
+| WHERE order_date >= now() - 30 days
+| STATS
+    total_orders = COUNT(*),
+    total_revenue = SUM(taxful_total_price),
+    avg_order = AVG(taxful_total_price),
+    max_order = MAX(taxful_total_price)
+    BY bucket = DATE_TRUNC(1 day, order_date)
+| SORT bucket ASC
+| LIMIT 50
+```
 
-Then create two additional agents:
-- `mars-weblogs-analyzer` — with `mars.weblogs_errors` and `mars.weblogs_top_errors` tools
-- `mars-ecommerce-analyzer` — with `mars.ecommerce_trends` and `mars.ecommerce_categories` tools
+**`mars.ecommerce_categories`** (ES|QL) — Sales by day of week
+```
+FROM kibana_sample_data_ecommerce
+| WHERE order_date >= now() - 30 days
+| STATS
+    total_orders = COUNT(*),
+    total_revenue = SUM(taxful_total_price)
+    BY day_of_week
+| SORT total_revenue DESC
+| LIMIT 10
+```
 
-See `agents/verifier.py` for the ES|QL queries to use in each tool.
+---
+
+Then create three **Agents** in Kibana → Agents:
+
+| Agent ID | Tools | Data Source |
+|---|---|---|
+| `mars-research-synthesizer` | `mars.spike_detector`, `mars.deploy_lookup`, `mars.doc_search`, `mars.runbook_search` | Demo Data |
+| `mars-weblogs-analyzer` | `mars.weblogs_errors`, `mars.weblogs_top_errors` | Sample Web Logs |
+| `mars-ecommerce-analyzer` | `mars.ecommerce_trends`, `mars.ecommerce_categories` | Sample eCommerce |
+
+Use the system prompt from `agents/planner.py` → `SYSTEM_PROMPT` for all three agents.
+
+> **Sample data:** Install via Kibana → Home → Add sample data → **Sample web logs** + **Sample eCommerce**
 
 ### 5 — Verify the pipeline works
 
@@ -334,7 +383,7 @@ Open **http://localhost:8000**, select a data source, type a question, and click
    Fires follow-up ES|QL queries for weak claims (conf < 0.68)
    Generates final sourced report
 
-Total: ~60-180 seconds end-to-end
+Total: ~2-3 minutes end-to-end
 ```
 
 ---
@@ -360,9 +409,12 @@ mars/
 ├── frontend/
 │   ├── server.py        # FastAPI server — 8 API endpoints
 │   └── heatmap.html     # Evidence Heatmap UI — real-time, Chart.js, marked.js
+├── architecture.html    # Interactive architecture diagram
 ├── es_client.py         # Elasticsearch client (Cloud API key + local basic auth)
 ├── requirements.txt     # Python dependencies
 ├── .env.example         # All required environment variables with descriptions
+├── Procfile             # Railway deployment
+├── runtime.txt          # Python 3.12 for Railway
 └── LICENSE              # Apache 2.0
 ```
 
@@ -424,10 +476,10 @@ The codebase auto-detects Cloud vs local via the presence of `ES_API_KEY` in you
 ## Hackathon Tracks
 
 - ✅ **Multi-agent** — Five agents plan, retrieve, verify, and reconcile independently
-- ✅ **Elastic Agent Builder** — Custom agent with 4 tools, Claude Opus 4.5 reasoning
-- ✅ **ES|QL tool** — `mars.spike_detector` + `mars.deploy_lookup` + 4 parameterized templates
+- ✅ **Elastic Agent Builder** — 3 agents, 7 custom tools, Claude Opus 4.5 reasoning
+- ✅ **ES|QL tool** — `mars.spike_detector` + `mars.deploy_lookup` + 6 parameterized templates
 - ✅ **Search tool** — `mars.doc_search` + `mars.runbook_search` in Kibana
-- ✅ **Measurable impact** — 30-60 min manual → ~45 sec automated
+- ✅ **Measurable impact** — 30-60 min manual → ~3 min automated
 - ✅ **Time-series aware** — ES|QL queries at 1-minute resolution over 30 days of data
 - ✅ **Reliable action** — Every decision sourced, every conflict explained
 
@@ -438,13 +490,13 @@ The codebase auto-detects Cloud vs local via the presence of `ES_API_KEY` in you
 | Layer | Technology | Role |
 |---|---|---|
 | **Search & Data** | Elasticsearch Cloud Serverless | All 6 indices, ES\|QL, hybrid search, Claim Ledger |
-| **Agent Framework** | Elastic Agent Builder (Kibana) | MARS agent with 4 custom tools |
+| **Agent Framework** | Elastic Agent Builder (Kibana) | 3 agents with 7 custom tools |
 | **LLM** | Claude Opus 4.5 | Planner reasoning via Elastic's Anthropic connector |
 | **Web Search** | Tavily API | Web Scout external corroboration |
 | **Backend** | Python 3.12 + FastAPI | Agent logic, pipeline orchestration, API server |
 | **Frontend** | HTML/CSS/JS | Evidence Heatmap, Chart.js, marked.js narrative |
 | **Data Generation** | Python Faker | 335k+ synthetic documents with planted contradictions |
-| **Infrastructure** | Elastic Cloud Serverless (GCP us-east1) | Fully managed, no cluster sizing required |
+| **Infrastructure** | Elastic Cloud Serverless (GCP us-east1) + Railway | Fully managed, no cluster sizing required |
 
 ---
 

@@ -7,7 +7,7 @@
 
 ## TL;DR — What MARS Does
 
-MARS takes a natural language question like *"Why did API latency spike last Tuesday?"* and runs five specialized AI agents in sequence — each using a different Elasticsearch tool — to produce a fully sourced, conflict-resolved root cause analysis in ~60 seconds.
+MARS takes a natural language question like *"Why did API latency spike last Tuesday?"* and runs five specialized AI agents in sequence — each using a different Elasticsearch tool — to produce a fully sourced, conflict-resolved root cause analysis in ~3 minutes.
 
 **The key differentiator:** When sources contradict each other (and they do — we planted two deliberate contradictions in the demo data), MARS automatically detects and resolves them using a trust hierarchy: ES|QL data always wins over documentation.
 
@@ -15,15 +15,15 @@ MARS takes a natural language question like *"Why did API latency spike last Tue
 
 ## Hackathon Requirements — Where They Are Satisfied
 
-| Requirement | Satisfied By | Where to See It |
-|---|---|---|
-| **Elastic Agent Builder** | `mars-research-synthesizer` agent in Kibana | Agent Builder narrative panel in UI, `agents/planner.py` `_call_agent_builder()` |
+| Requirement | Satisfied By                                           | Where to See It |
+|---|--------------------------------------------------------|---|
+| **Elastic Agent Builder** | `mars-research-synthesizer` agent in Kibana            | Agent Builder narrative panel in UI, `agents/planner.py` `_call_agent_builder()` |
 | **ES\|QL tool** | `mars.spike_detector` + `mars.deploy_lookup` in Kibana | Green cells in ES\|QL Data column of heatmap |
-| **Search tool** | `mars.doc_search` + `mars.runbook_search` in Kibana | Green/amber cells in Internal Docs column |
-| **Multi-step reasoning** | 5-agent pipeline with shared Claim Ledger | Terminal output during pipeline run |
-| **Multi-agent** | Planner → Verifier → Retrieval → Web Scout → Reviewer | `agents/` directory, pipeline status indicator in UI |
-| **Measurable impact** | 30-60 min manual → ~45 sec automated | Stats bar in UI |
-| **Open source + Apache 2.0** | `LICENSE` file | Root of repository |
+| **Search tool** | `mars.doc_search` + `mars.runbook_search` in Kibana    | Green/amber cells in Internal Docs column |
+| **Multi-step reasoning** | 5-agent pipeline with shared Claim Ledger              | Terminal output during pipeline run |
+| **Multi-agent** | Planner → Verifier → Retrieval → Web Scout → Reviewer  | `agents/` directory, pipeline status indicator in UI |
+| **Measurable impact** | 30-60 min manual → ~45 sec auto                        | **Measurable impact** | 30-60 min manual → ~3 min automated | Stats bar in UI |
+| **Open source + Apache 2.0** | `LICENSE` file                                         | Root of repository |
 
 ---
 
