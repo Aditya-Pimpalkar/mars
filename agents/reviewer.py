@@ -149,17 +149,28 @@ def _trigger_followup(
         source_config = get_source_config("demo")
 
     for claim in weak_claims:
-        # Skip claims already resolved by contradiction detection
-        if claim.status == "contradicted":
-            print(f"  ⏭️   Skipping contradicted claim: {claim.claim_text[:60]}...")
-            continue
+            # Skip claims already resolved by contradiction detection
+            if claim.status == "contradicted":
+                print(f"  ⏭️   Skipping contradicted claim: {claim.claim_text[:60]}...")
+                continue
 
-        if claim.follow_up_count >= max_iterations:
-            ledger.update_claim(claim.claim_id, {
-                "follow_up_status": "exhausted",
-                "resolution_reasoning": "Max follow-up iterations reached. Best available evidence shown.",
-            })
-            continue
+            # Skip internal_doc follow-ups for non-demo sources
+            # DB pool incidents can't be verified against web/ecommerce data
+            if claim.source_type == "internal_doc":
+                try:
+                    nav = es.get(index="claim-ledger-mars", id=f"narrative_{session_id}")
+                    session_source = nav["_source"].get("data_source", "demo")
+                except Exception:
+                    session_source = "demo"
+                if session_source != "demo":
+                    continue
+
+            if claim.follow_up_count >= max_iterations:
+                ledger.update_claim(claim.claim_id, {
+                    "follow_up_status": "exhausted",
+                    "resolution_reasoning": "Max follow-up iterations reached. Best available evidence shown.",
+                })
+                continue
 
         # Mark as querying
         ledger.update_claim(claim.claim_id, {"follow_up_status": "querying"})
